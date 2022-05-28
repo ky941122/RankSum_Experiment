@@ -441,6 +441,7 @@ class Trainer(object):
                     grads, float(1))
             self.optim.step()
 
+
     def _save(self, step):
         real_model = self.model
         # real_generator = (self.generator.module
