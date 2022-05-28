@@ -393,7 +393,7 @@ class Trainer(object):
             mask_cls = batch.mask_cls
 
             sent_scores, mask = self.model(src, segs, clss, mask, mask_cls)  # sent_scores: [batch, sent_nums]，batch中一行相当于一个qid。
-            lambdas = np.zeros_like(sent_scores)
+            lambdas = np.zeros_like(sent_scores.data.numpy())
             for bi in range(len(sent_scores)):
                 sub_lambda, _ = self.lambdarank_loss(labels[bi].float(), sent_scores[bi], mask[bi].long())
                 sub_lambda = sub_lambda * mask[bi].float().data.numpy()
