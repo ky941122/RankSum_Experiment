@@ -10,6 +10,48 @@ from others.logging import logger
 from others.utils import test_rouge, rouge_results_to_str
 
 
+def dcg(scores):
+    """
+    compute the DCG value based on the given score
+    :param scores: a score list of documents
+    :return v: DCG value
+    """
+    v = 0
+    for i in range(len(scores)):
+        v += (np.power(2, scores[i]) - 1) / np.log2(i+2)  # i+2 is because i starts from 0
+    return v
+
+
+def idcg(scores):
+    """
+    compute the IDCG value (best dcg value) based on the given score
+    :param scores: a score list of documents
+    :return:  IDCG value
+    """
+    best_scores = sorted(scores)[::-1]
+    return dcg(best_scores)
+
+
+def ndcg(scores):
+    """
+    compute the NDCG value based on the given score
+    :param scores: a score list of documents
+    :return:  NDCG value
+    """
+    return dcg(scores)/idcg(scores)
+
+def single_dcg(scores, i, j):
+    """
+    compute the single dcg that i-th element located j-th position
+    :param scores:
+    :param i:
+    :param j:
+    :return:
+    """
+    return (np.power(2, scores[i]) - 1) / np.log2(j+2)
+
+
+
 def _tally_parameters(model):
     n_params = sum([p.nelement() for p in model.parameters()])
     return n_params
@@ -293,6 +335,47 @@ class Trainer(object):
 
         return stats
 
+    def lambdarank_loss(self, true_scores, temp_scores, masks):
+        '''
+        masks: padding部分是0，其余是1。
+        '''
+        # 计算一个样本的所有句子的lambda。
+        order_pairs = []    # 该样本包含的句子中，所有标签i > j的pair，i和j是句子的序号。排除padding部分。
+        for i in range(len(true_scores)):
+            if masks[i] == 0:
+                continue
+            for j in range(len(true_scores)):
+                if masks[j] == 0:
+                    continue
+                if true_scores[i] > true_scores[j]:
+                    order_pairs.append((i, j))
+
+        doc_num = len(true_scores)
+        lambdas = np.zeros(doc_num)
+        w = np.zeros(doc_num)
+        IDCG = idcg(true_scores)
+        single_dcgs = {}
+        for i, j in order_pairs:
+            if (i, i) not in single_dcgs:
+                single_dcgs[(i, i)] = single_dcg(true_scores, i, i)
+            if (j, j) not in single_dcgs:
+                single_dcgs[(j, j)] = single_dcg(true_scores, j, j)
+            single_dcgs[(i, j)] = single_dcg(true_scores, i, j)
+            single_dcgs[(j, i)] = single_dcg(true_scores, j, i)
+
+        for i, j in order_pairs:
+            delta = abs(single_dcgs[(i, j)] + single_dcgs[(j, i)] - single_dcgs[(i, i)] - single_dcgs[(j, j)]) / IDCG
+            rho = 1 / (1 + np.exp(temp_scores[i] - temp_scores[j]))
+            lambdas[i] += rho * delta
+            lambdas[j] -= rho * delta
+
+            rho_complement = 1.0 - rho
+            w[i] += rho * rho_complement * delta
+            w[j] -= rho * rho_complement * delta
+
+        return lambdas, w
+
+
     def _gradient_accumulation(self, true_batchs, normalization, total_stats,
                                report_stats):
         if self.grad_accum_count > 1:
@@ -309,17 +392,32 @@ class Trainer(object):
             mask = batch.mask_src
             mask_cls = batch.mask_cls
 
-            sent_scores, mask = self.model(src, segs, clss, mask, mask_cls)
+            sent_scores, mask = self.model(src, segs, clss, mask, mask_cls)  # sent_scores: [batch, sent_nums]，batch中一行相当于一个qid。
+            lambdas = np.zeros_like(sent_scores)
+            for bi in range(len(sent_scores)):
+                sub_lambda, _ = self.lambdarank_loss(labels[bi].float(), sent_scores[bi], mask[bi].long())
+                sub_lambda = sub_lambda * mask[bi].float().data.numpy()
+                lambdas[bi] = sub_lambda
+            lambdas = torch.Tensor(lambdas)
+            # update parameters
+            sent_scores.backward(lambdas, retain_graph=True)
 
-            loss = self.loss(sent_scores, labels.float())
-            loss = (loss * mask.float()).sum()
-            (loss / loss.numel()).backward()
+            # with torch.no_grad():
+            #     for param in self.model.parameters():
+            #         param.data.add_(param.grad.data * self.args.lr)
+
+
+            # loss = self.loss(sent_scores, labels.float())
+            # loss = (loss * mask.float()).sum()
+            # (loss / loss.numel()).backward()
+
+
             # loss.div(float(normalization)).backward()
 
-            batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization)
+            # batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization)
 
-            total_stats.update(batch_stats)
-            report_stats.update(batch_stats)
+            # total_stats.update(batch_stats)
+            # report_stats.update(batch_stats)
 
             # 4. Update the parameters and statistics.
             if self.grad_accum_count == 1:
