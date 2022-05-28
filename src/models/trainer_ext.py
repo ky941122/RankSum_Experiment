@@ -400,7 +400,7 @@ class Trainer(object):
                                                      mask[bi].long().cpu().detach().numpy())
                 sub_lambda = sub_lambda * mask[bi].float().cpu().detach().numpy()
                 lambdas[bi] = sub_lambda
-            lambdas = torch.Tensor(lambdas)
+            lambdas = torch.Tensor(lambdas).cuda()
             # update parameters
             sent_scores.backward(lambdas, retain_graph=True)
 
