@@ -4,8 +4,71 @@ from __future__ import print_function
 import sys
 import time
 from datetime import datetime
-
+import numpy as np
 from others.logging import logger
+
+
+def dcg(scores):
+    """
+    compute the DCG value based on the given score
+    :param scores: a score list of documents
+    :return v: DCG value
+    """
+    v = 0
+    for i in range(len(scores)):
+        v += (np.power(2, scores[i]) - 1) / np.log2(i+2)  # i+2 is because i starts from 0
+    return v
+
+
+def idcg(scores):
+    """
+    compute the IDCG value (best dcg value) based on the given score
+    :param scores: a score list of documents
+    :return:  IDCG value
+    """
+    best_scores = sorted(scores)[::-1]
+    return dcg(best_scores)
+
+
+def ndcg(scores):
+    """
+    compute the NDCG value based on the given score
+    :param scores: a score list of documents
+    :return:  NDCG value
+    """
+    return dcg(scores)/idcg(scores)
+
+def single_dcg(scores, i, j):
+    """
+    compute the single dcg that i-th element located j-th position
+    :param scores:
+    :param i:
+    :param j:
+    :return:
+    """
+    return (np.power(2, scores[i]) - 1) / np.log2(j+2)
+
+
+# def delta_ndcg(scores, p, q, single_dcgs):
+#     """
+#     swap the i-th and j-th doucment, compute the absolute value of NDCG delta
+#     :param scores: a score list of documents
+#     :param p, q: the swap positions of documents
+#     :return: the absolute value of NDCG delta
+#     """
+#     delta = single_dcgs[(p,q)] + single_dcgs[(q,p)] - single_dcgs[(p,p)] -single_dcgs[(q,q)]
+#     s2 = scores.copy()  # new score list
+#     s2[p], s2[q] = s2[q], s2[p]  # swap
+#     return abs(ndcg(s2) - ndcg(scores))
+
+
+def ndcg_k(scores, k):
+    scores_k = scores[:k]
+    dcg_k = dcg(scores_k)
+    idcg_k = dcg(sorted(scores)[::-1][:k])
+    if idcg_k == 0:
+        return np.nan
+    return dcg_k/idcg_k
 
 
 def build_report_manager(opt):
@@ -167,9 +230,11 @@ class Statistics(object):
     * elapsed time
     """
 
-    def __init__(self, loss=0, n_docs=0, n_correct=0):
+    def __init__(self, loss=0, n_docs=0, labels=[], scores=[], n_correct=0):
         self.loss = loss
         self.n_docs = n_docs
+        self.labels = labels  # list of list, 每一行是一个doc下所有句子的label。
+        self.scores = scores  # list of list, 每一行是一个doc下所有句子的预测分数。
         self.start_time = time.time()
 
     @staticmethod
@@ -230,6 +295,28 @@ class Statistics(object):
 
         self.n_docs += stat.n_docs
 
+        self.labels.extend(stat.labels)
+        self.scores.extend(stat.scores)
+
+    def ndcg(self):
+        ndcg_list = []
+        assert len(self.labels) == len(self.scores)
+        for i in range(len(self.labels)):
+
+            sub_pred_score = np.array(self.scores[i])
+
+            # calculate the predicted NDCG
+            true_label = np.array(self.labels[i])
+
+            k = len(true_label)
+            pred_sort_index = np.argsort(sub_pred_score)[::-1]
+            true_label = true_label[pred_sort_index]
+
+            ndcg_val = ndcg_k(true_label, k)
+            ndcg_list.append(ndcg_val)
+        return np.mean(ndcg_list)
+
+
     def xent(self):
         """ compute cross entropy """
         if (self.n_docs == 0):
@@ -253,9 +340,10 @@ class Statistics(object):
         if num_steps > 0:
             step_fmt = "%s/%5d" % (step_fmt, num_steps)
         logger.info(
-            ("Step %s; xent: %4.2f; " +
+            ("Step %s; ndcg: %4.2f; xent: %4.2f; " +
              "lr: %7.7f; %3.0f docs/s; %6.0f sec")
             % (step_fmt,
+               self.ndcg(),
                self.xent(),
                learning_rate,
                self.n_docs / (t + 1e-5),

@@ -394,12 +394,27 @@ class Trainer(object):
 
             sent_scores, mask = self.model(src, segs, clss, mask, mask_cls)  # sent_scores: [batch, sent_nums]，batch中一行相当于一个qid。
             lambdas = np.zeros_like(sent_scores.cpu().detach().numpy())
+            labels_stat = []  # 用于计算指标
+            scores_stat = []  # 用于计算指标
             for bi in range(len(sent_scores)):
                 sub_lambda, _ = self.lambdarank_loss(labels[bi].float().cpu().detach().numpy(),
                                                      sent_scores[bi].cpu().detach().numpy(),
                                                      mask[bi].long().cpu().detach().numpy())
                 sub_lambda = sub_lambda * mask[bi].float().cpu().detach().numpy()
                 lambdas[bi] = sub_lambda
+
+                labels_stat.append( labels[bi].float().cpu().detach().numpy()[ mask[bi].long().cpu().detach().numpy()==1 ].tolist() )
+                scores_stat.append( sent_scores[bi].cpu().detach().numpy()[ mask[bi].long().cpu().detach().numpy() == 1 ].tolist() )
+
+
+                print('labels: ', labels[bi].float().cpu().detach().numpy())
+                print('scores: ', sent_scores[bi].cpu().detach().numpy())
+                print('masks: ', mask[bi].long().cpu().detach().numpy())
+                print('labels_stat: ', labels[bi].float().cpu().detach().numpy()[ mask[bi].long().cpu().detach().numpy()==1 ].tolist())
+                print('scores_stat: ', sent_scores[bi].cpu().detach().numpy()[ mask[bi].long().cpu().detach().numpy() == 1 ].tolist())
+
+
+
             lambdas = torch.Tensor(lambdas).cuda()
             # update parameters
             sent_scores.backward(lambdas, retain_graph=True)
@@ -414,12 +429,11 @@ class Trainer(object):
             # (loss / loss.numel()).backward()
 
 
-            # loss.div(float(normalization)).backward()
 
-            # batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization)
+            batch_stats = Statistics(labels=labels_stat, scores=scores_stat)
 
-            # total_stats.update(batch_stats)
-            # report_stats.update(batch_stats)
+            total_stats.update(batch_stats)
+            report_stats.update(batch_stats)
 
             # 4. Update the parameters and statistics.
             if self.grad_accum_count == 1:
