@@ -315,11 +315,11 @@ class Statistics(object):
             ndcg_val = ndcg_k(true_label, k)
             ndcg_list.append(ndcg_val)
 
-            print("label: ", true_label)
-            print("score: ", sub_pred_score)
-            print("ndcg: ", ndcg_val)
+            # print("label: ", true_label)
+            # print("score: ", sub_pred_score)
+            # print("ndcg: ", ndcg_val)
 
-        return np.mean(ndcg_list)
+        return np.nanmean(ndcg_list)
 
 
     def xent(self):
