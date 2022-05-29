@@ -407,11 +407,11 @@ class Trainer(object):
                 scores_stat.append( sent_scores[bi].cpu().detach().numpy()[ mask[bi].long().cpu().detach().numpy() == 1 ].tolist() )
 
 
-                print('labels: ', labels[bi].float().cpu().detach().numpy())
-                print('scores: ', sent_scores[bi].cpu().detach().numpy())
-                print('masks: ', mask[bi].long().cpu().detach().numpy())
-                print('labels_stat: ', labels[bi].float().cpu().detach().numpy()[ mask[bi].long().cpu().detach().numpy()==1 ].tolist())
-                print('scores_stat: ', sent_scores[bi].cpu().detach().numpy()[ mask[bi].long().cpu().detach().numpy() == 1 ].tolist())
+                # print('labels: ', labels[bi].float().cpu().detach().numpy())
+                # print('scores: ', sent_scores[bi].cpu().detach().numpy())
+                # print('masks: ', mask[bi].long().cpu().detach().numpy())
+                # print('labels_stat: ', labels[bi].float().cpu().detach().numpy()[ mask[bi].long().cpu().detach().numpy()==1 ].tolist())
+                # print('scores_stat: ', sent_scores[bi].cpu().detach().numpy()[ mask[bi].long().cpu().detach().numpy() == 1 ].tolist())
 
 
 
