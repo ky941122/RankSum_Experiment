@@ -398,6 +398,9 @@ class Trainer(object):
 
     def _gradient_accumulation(self, true_batchs, normalization, total_stats,
                                report_stats):
+
+        assert self.grad_accum_count == 1
+
         if self.grad_accum_count > 1:
             self.model.zero_grad()
 
@@ -445,9 +448,10 @@ class Trainer(object):
             # update parameters
             sent_scores.backward(lambdas, retain_graph=True)
 
-            # with torch.no_grad():
-            #     for param in self.model.parameters():
-            #         param.data.add_(param.grad.data * self.args.lr)
+            with torch.no_grad():
+                for param in self.model.parameters():
+                    param.data.add_(param.grad.data * self.optim.learning_rate)
+
 
 
             # loss = self.loss(sent_scores, labels.float())
@@ -462,26 +466,26 @@ class Trainer(object):
             report_stats.update(batch_stats)
 
             # 4. Update the parameters and statistics.
-            if self.grad_accum_count == 1:
-                # Multi GPU gradient gather
-                if self.n_gpu > 1:
-                    grads = [p.grad.data for p in self.model.parameters()
-                             if p.requires_grad
-                             and p.grad is not None]
-                    distributed.all_reduce_and_rescale_tensors(
-                        grads, float(1))
-                self.optim.step()
+            # if self.grad_accum_count == 1:
+            #     # Multi GPU gradient gather
+            #     if self.n_gpu > 1:
+            #         grads = [p.grad.data for p in self.model.parameters()
+            #                  if p.requires_grad
+            #                  and p.grad is not None]
+            #         distributed.all_reduce_and_rescale_tensors(
+            #             grads, float(1))
+            #     self.optim.step()
 
         # in case of multi step gradient accumulation,
         # update only after accum batches
-        if self.grad_accum_count > 1:
-            if self.n_gpu > 1:
-                grads = [p.grad.data for p in self.model.parameters()
-                         if p.requires_grad
-                         and p.grad is not None]
-                distributed.all_reduce_and_rescale_tensors(
-                    grads, float(1))
-            self.optim.step()
+        # if self.grad_accum_count > 1:
+        #     if self.n_gpu > 1:
+        #         grads = [p.grad.data for p in self.model.parameters()
+        #                  if p.requires_grad
+        #                  and p.grad is not None]
+        #         distributed.all_reduce_and_rescale_tensors(
+        #             grads, float(1))
+        #     self.optim.step()
 
 
     def _save(self, step):
