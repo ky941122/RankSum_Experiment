@@ -232,9 +232,18 @@ class Trainer(object):
 
                 sent_scores, mask = self.model(src, segs, clss, mask, mask_cls)
 
+                labels_stat = []  # 用于计算指标
+                scores_stat = []  # 用于计算指标
+                for bi in range(len(sent_scores)):
+                    labels_stat.append(
+                        labels[bi].float().cpu().detach().numpy()[mask[bi].long().cpu().detach().numpy() == 1].tolist())
+                    scores_stat.append(
+                        sent_scores[bi].cpu().detach().numpy()[mask[bi].long().cpu().detach().numpy() == 1].tolist())
+
+
                 loss = self.loss(sent_scores, labels.float())
                 loss = (loss * mask.float()).sum()
-                batch_stats = Statistics(float(loss.cpu().data.numpy()), len(labels))
+                batch_stats = Statistics(float(loss.cpu().data.numpy()), len(labels), labels=labels_stat, scores=scores_stat)
                 stats.update(batch_stats)
             self._report_step(0, step, valid_stats=stats)
             return stats
@@ -291,9 +300,20 @@ class Trainer(object):
                         else:
                             sent_scores, mask = self.model(src, segs, clss, mask, mask_cls)
 
+                            labels_stat = []  # 用于计算指标
+                            scores_stat = []  # 用于计算指标
+                            for bi in range(len(sent_scores)):
+                                labels_stat.append(
+                                    labels[bi].float().cpu().detach().numpy()[
+                                        mask[bi].long().cpu().detach().numpy() == 1].tolist())
+                                scores_stat.append(
+                                    sent_scores[bi].cpu().detach().numpy()[
+                                        mask[bi].long().cpu().detach().numpy() == 1].tolist())
+
                             loss = self.loss(sent_scores, labels.float())
                             loss = (loss * mask.float()).sum()
-                            batch_stats = Statistics(float(loss.cpu().data.numpy()), len(labels))
+
+                            batch_stats = Statistics(float(loss.cpu().data.numpy()), len(labels), labels=labels_stat, scores=scores_stat)
                             stats.update(batch_stats)
 
                             sent_scores = sent_scores + mask.float()
@@ -400,7 +420,13 @@ class Trainer(object):
                 sub_lambda, _ = self.lambdarank_loss(labels[bi].float().cpu().detach().numpy(),
                                                      sent_scores[bi].cpu().detach().numpy(),
                                                      mask[bi].long().cpu().detach().numpy())
+
+                print("sub_lambda1: ", sub_lambda)
+
                 sub_lambda = sub_lambda * mask[bi].float().cpu().detach().numpy()
+
+                print("sub_lambda2: ", sub_lambda)
+
                 lambdas[bi] = sub_lambda
 
                 labels_stat.append( labels[bi].float().cpu().detach().numpy()[ mask[bi].long().cpu().detach().numpy()==1 ].tolist() )

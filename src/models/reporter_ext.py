@@ -212,7 +212,7 @@ class ReportMgr(ReportMgrBase):
                                        step)
 
         if valid_stats is not None:
-            self.log('Validation xent: %g at step %d' % (valid_stats.xent(), step))
+            self.log('Validation xent: %g; ndcg: %g at step %d' % (valid_stats.xent(), valid_stats.ndcg(), step))
 
             self.maybe_log_tensorboard(valid_stats,
                                        "valid",
