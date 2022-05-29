@@ -421,11 +421,11 @@ class Trainer(object):
                                                      sent_scores[bi].cpu().detach().numpy(),
                                                      mask[bi].long().cpu().detach().numpy())
 
-                print("sub_lambda1: ", sub_lambda)
+                # print("sub_lambda1: ", sub_lambda)
 
                 sub_lambda = sub_lambda * mask[bi].float().cpu().detach().numpy()
 
-                print("sub_lambda2: ", sub_lambda)
+                # print("sub_lambda2: ", sub_lambda)
 
                 lambdas[bi] = sub_lambda
 
