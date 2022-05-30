@@ -453,15 +453,17 @@ class Trainer(object):
                     if param.requires_grad and param.grad is not None:
                         param.data.add_(param.grad.data * self.optim.learning_rate)
 
+            self.model.zero_grad()
+
+            loss = self.loss(sent_scores, labels.float())
+            loss = (loss * mask.float()).sum()
+            (loss / loss.numel()).backward()
+
+            self.optim.step()
 
 
-            # loss = self.loss(sent_scores, labels.float())
-            # loss = (loss * mask.float()).sum()
-            # (loss / loss.numel()).backward()
 
-
-
-            batch_stats = Statistics(labels=labels_stat, scores=scores_stat)
+            batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization, labels=labels_stat, scores=scores_stat)
 
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)
