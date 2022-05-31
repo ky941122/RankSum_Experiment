@@ -82,6 +82,7 @@ if __name__ == '__main__':
     parser.add_argument("-param_init_glorot", type=str2bool, nargs='?',const=True,default=True)
     parser.add_argument("-optim", default='adam', type=str)
     parser.add_argument("-lr", default=1, type=float)
+    parser.add_argument("-lr4lambda", default=1, type=float)
     parser.add_argument("-beta1", default= 0.9, type=float)
     parser.add_argument("-beta2", default=0.999, type=float)
     parser.add_argument("-warmup_steps", default=8000, type=int)

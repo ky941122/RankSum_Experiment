@@ -451,7 +451,7 @@ class Trainer(object):
             with torch.no_grad():
                 for param in self.model.parameters():
                     if param.requires_grad and param.grad is not None:
-                        param.data.add_(param.grad.data * self.optim.learning_rate)
+                        param.data.add_(param.grad.data * self.args.lr4lambda)
 
             self.model.zero_grad()
 
