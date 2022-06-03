@@ -322,6 +322,7 @@ class Trainer(object):
                         # selected_ids = np.sort(selected_ids,1)
                         for i, idx in enumerate(selected_ids):
                             _pred = []
+                            chose_word_nums = 0
                             if (len(batch.src_str[i]) == 0):
                                 continue
                             for j in selected_ids[i][:len(batch.src_str[i])]:
@@ -331,11 +332,17 @@ class Trainer(object):
                                 if (self.args.block_trigram):
                                     if (not _block_tri(candidate, _pred)):
                                         _pred.append(candidate)
+                                        chose_word_nums += len(candidate.split())
                                 else:
                                     _pred.append(candidate)
+                                    chose_word_nums += len(candidate.split())
 
-                                if ((not cal_oracle) and (not self.args.recall_eval) and len(_pred) == 3):
-                                    break
+                                if self.args.limit_word_nums:
+                                    if ( (not cal_oracle) and (not self.args.recall_eval) and chose_word_nums >= 49 ):
+                                        break
+                                else:
+                                    if ((not cal_oracle) and (not self.args.recall_eval) and len(_pred) == 3):
+                                        break
 
                             _pred = '<q>'.join(_pred)
                             if (self.args.recall_eval):
